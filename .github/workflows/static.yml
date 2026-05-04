@@ -1,0 +1,333 @@
+=<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <title>Capybara Chef: Ultimate Edition</title>
+    <style>
+        :root { --main: #8d6e63; --bg: #fdf5e6; --accent: #ff7043; --dark: #2c3e50; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--dark); margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
+        
+        #game-container { width: 950px; height: 750px; background: var(--bg); border-radius: 20px; position: relative; display: flex; flex-direction: column; border: 10px solid #34495e; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+
+        /* ЕКРАНИ */
+        .screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10; background: var(--bg); padding: 20px; box-sizing: border-box; }
+        .hidden { display: none !important; }
+
+        /* МЕНЮ */
+        .level-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; width: 85%; }
+        .level-card { background: white; border: 4px solid var(--main); border-radius: 15px; padding: 15px; cursor: pointer; transition: 0.2s; text-align: center; box-shadow: 0 4px 0 var(--main); }
+        .level-card:hover { transform: translateY(-3px); border-color: var(--accent); box-shadow: 0 7px 0 var(--accent); }
+        .level-card h3 { margin: 5px 0; color: var(--main); font-size: 24px; }
+        .level-card p { margin: 5px 0; font-size: 14px; color: #666; }
+
+        /* РЕДАКТОР */
+        #editor-scroll { overflow-y: auto; width: 100%; max-height: 400px; margin-bottom: 20px; }
+        .edit-row { background: #efe5d9; padding: 10px; border-radius: 10px; margin: 5px auto; width: 90%; display: flex; justify-content: space-around; align-items: center; border: 1px solid #d7ccc8; }
+        input { padding: 8px; border-radius: 5px; border: 1px solid #ccc; width: 55px; text-align: center; font-size: 16px; }
+
+        /* ГЕЙМПЛЕЙ */
+        #hud { height: 60px; background: white; display: flex; justify-content: space-around; align-items: center; border-bottom: 4px solid #ddd; font-weight: bold; font-size: 22px; width: 100%; }
+        #orders-area { height: 110px; background: #f0f0f0; display: flex; gap: 12px; padding: 10px; justify-content: center; border-bottom: 2px solid #ddd; overflow-x: auto; }
+        .order { width: 85px; height: 85px; background: white; border: 3px solid var(--main); border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 35px; position: relative; flex-shrink: 0; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        .order-timer { position: absolute; bottom: 0; left: 0; height: 6px; background: #4caf50; width: 100%; border-radius: 0 0 8px 8px; transition: width 0.3s linear; }
+
+        #kitchen { flex-grow: 1; display: grid; grid-template-columns: 1fr 2fr; gap: 20px; padding: 20px; }
+        .panel { background: #d7ccc8; border-radius: 20px; padding: 15px; border: 4px solid var(--main); box-shadow: inset 0 0 10px rgba(0,0,0,0.1); }
+        
+        .pantry-grid { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+        .ing-item { font-size: 45px; background: white; padding: 8px; border-radius: 12px; cursor: pointer; border: 3px solid transparent; transition: 0.1s; box-shadow: 0 4px 0 #bbb; }
+        .ing-item:hover { transform: scale(1.05); border-color: var(--accent); }
+        .ing-item:active { transform: translateY(2px); box-shadow: none; }
+
+        .cook-slots { display: flex; justify-content: center; gap: 15px; flex-wrap: wrap; margin-top: 15px; }
+        .slot { width: 100px; height: 100px; background: #90a4ae; border: 4px solid #455a64; border-radius: 15px; display: flex; align-items: center; justify-content: center; font-size: 50px; cursor: pointer; position: relative; }
+        .progress { position: absolute; bottom: 0; left: 0; height: 12px; background: var(--accent); width: 0%; border-radius: 0 0 10px 10px; }
+
+        #inventory-panel { height: 100px; background: var(--dark); display: flex; align-items: center; justify-content: center; gap: 15px; color: white; border-top: 4px solid var(--accent); }
+        .inv-slot { width: 75px; height: 75px; background: rgba(255,255,255,0.1); border: 2px dashed #fff; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 40px; cursor: pointer; }
+        .inv-slot.active { border-style: solid; background: rgba(255,255,255,0.25); box-shadow: inset 0 0 10px rgba(0,0,0,0.5); }
+
+        .btn { padding: 15px 30px; background: var(--accent); color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: bold; box-shadow: 0 5px #d35400; font-size: 20px; transition: 0.1s; }
+        .btn:active { transform: translateY(3px); box-shadow: none; }
+        
+        .plate-serve { font-size: 65px; cursor: pointer; text-align: center; margin-top: 15px; filter: drop-shadow(0 4px 0 #999); transition: 0.2s; }
+        .plate-serve:hover { transform: scale(1.1); }
+        .plate-serve:active { transform: scale(0.9); }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    
+    <div id="screen-menu" class="screen">
+        <h1 style="color: var(--main); font-size: 55px; margin-bottom: 40px; text-shadow: 2px 2px #fff;">🦫 Capy Chef</h1>
+        <div class="level-grid">
+            <div class="level-card" onclick="loadLevel(1)">
+                <h3>Рівень 1</h3>
+                <p>🍳 Сніданок (Легко)<br>1 рука • 2 страви</p>
+            </div>
+            <div class="level-card" onclick="loadLevel(2)">
+                <h3>Рівень 2</h3>
+                <p>🥗 Овочевий мікс (Середньо)<br>2 руки • 4 страви</p>
+            </div>
+            <div class="level-card" onclick="loadLevel(3)">
+                <h3>Рівень 3</h3>
+                <p>👑 Королівський бенкет (Важко)<br>3 руки • 6 страв</p>
+            </div>
+            <div class="level-card" style="background: #fff3e0; border-color: #ff9800;" onclick="showEditor()">
+                <h3 style="color: #ef6c00;">🛠️ Редактор</h3>
+                <p>Твої власні емодзі та правила</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="screen-editor" class="screen hidden">
+        <h2 style="color: var(--main)">Налаштуй свій рівень</h2>
+        <div id="editor-scroll">
+            <div class="edit-row">
+                👐 Руки (1-5): <input type="number" id="cfg-inv" value="2" min="1" max="5">
+                ⏱️ Час (сек): <input type="number" id="cfg-time" value="60">
+            </div>
+            <div id="dishes-list">
+                <div class="edit-row dish-def">
+                    Сире: <input type="text" class="raw-in" value="🍎"> → Готове: <input type="text" class="res-in" value="🥧">
+                </div>
+            </div>
+            <button class="btn" style="background:#8bc34a; font-size: 16px; margin: 10px;" onclick="addDishRow()">+ Додати страву</button>
+        </div>
+        <div style="display:flex; gap:15px;">
+            <button class="btn" style="background:#78909c" onclick="showMenu()">Назад</button>
+            <button class="btn" onclick="startCustomGame()">ГРАТИ!</button>
+        </div>
+    </div>
+
+    <div id="screen-over" class="screen hidden" style="background: rgba(0,0,0,0.85); color: white;">
+        <h1 id="over-title" style="font-size: 50px;">ЧАС ВИЙШОВ!</h1>
+        <h2 id="final-score" style="font-size: 35px; color: #ffeb3b;">Очки: 0</h2>
+        <button class="btn" onclick="showMenu()">В ГОЛОВНЕ МЕНЮ</button>
+    </div>
+
+    <div id="game-ui" class="hidden" style="display:contents">
+        <div id="hud">
+            <div id="lvl-name" style="color: var(--main)">Рівень</div>
+            <div id="timer" style="color: #e53935">60с</div>
+            <div id="score" style="color: #2e7d32">0</div>
+        </div>
+
+        <div id="orders-area"></div>
+
+        <div id="kitchen">
+            <div class="panel">
+                <h3 style="text-align:center; margin:0 0 10px 0;">📦 СКЛАД</h3>
+                <div id="pantry" class="pantry-grid"></div>
+            </div>
+            <div class="panel">
+                <h3 style="text-align:center; margin:0;">🔥 КУХНЯ</h3>
+                <div id="cooking-zone" class="cook-slots">
+                    <div class="slot" onclick="workSlot(0)"><div class="progress"></div></div>
+                    <div class="slot" onclick="workSlot(1)"><div class="progress"></div></div>
+                    <div class="slot" onclick="workSlot(2)"><div class="progress"></div></div>
+                </div>
+                <div class="plate-serve" onclick="serveFood()">🍽️</div>
+                <div style="text-align:center; font-weight:bold; color:#5d4037; letter-spacing: 2px;">ПОДАТИ</div>
+            </div>
+        </div>
+
+        <div id="inventory-panel">
+            <span style="margin-right:10px">В РУКАХ:</span>
+            <div id="inv-slots-container" style="display:flex; gap:12px;"></div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    const LEVELS = {
+        1: { name: "🍞 Сніданок", inv: 1, time: 60, spawn: 7000, recipes: {"🥚":"🍳", "🍞":"🥪"} },
+        2: { name: "🥗 Веган-день", inv: 2, time: 80, spawn: 5500, recipes: {"🥒":"🥗", "🍅":"🥫", "🥔":"🍟", "🌽":"🍿"} },
+        3: { name: "👑 Бенкет", inv: 3, time: 100, spawn: 4000, recipes: {"🥩":"🍖", "🥔":"🍟", "🥚":"🍳", "🍄":"🥘", "🍎":"🥧", "🐟":"🍣"} }
+    };
+
+    let config = {};
+    let state = { score: 0, timeLeft: 0, inventory: [], orders: [], slots: [], intervals: [] };
+
+    function showMenu() {
+        document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+        document.getElementById('screen-menu').classList.remove('hidden');
+        document.getElementById('game-ui').classList.add('hidden');
+        resetState();
+    }
+
+    function showEditor() {
+        document.getElementById('screen-menu').classList.add('hidden');
+        document.getElementById('screen-editor').classList.remove('hidden');
+    }
+
+    function addDishRow() {
+        const div = document.createElement('div');
+        div.className = 'edit-row dish-def';
+        div.innerHTML = `Сире: <input type="text" class="raw-in" value="🥕"> → Готове: <input type="text" class="res-in" value="🥗">`;
+        document.getElementById('dishes-list').appendChild(div);
+    }
+
+    function loadLevel(id) {
+        const lvl = LEVELS[id];
+        config = { ...lvl, invSize: lvl.inv };
+        startGame();
+    }
+
+    function startCustomGame() {
+        config.invSize = parseInt(document.getElementById('cfg-inv').value);
+        config.time = parseInt(document.getElementById('cfg-time').value);
+        config.name = "Мій Рівень";
+        config.spawn = 6000;
+        config.recipes = {};
+        document.querySelectorAll('.dish-def').forEach(row => {
+            const raw = row.querySelector('.raw-in').value;
+            const res = row.querySelector('.res-in').value;
+            if(raw && res) config.recipes[raw] = res;
+        });
+        startGame();
+    }
+
+    function resetState() {
+        state.intervals.forEach(clearInterval);
+        state.intervals = [];
+        state.slots = [
+            {item: null, progress: 0, timer: null},
+            {item: null, progress: 0, timer: null},
+            {item: null, progress: 0, timer: null}
+        ];
+        state.inventory = [];
+        state.orders = [];
+        state.score = 0;
+    }
+
+    function startGame() {
+        resetState();
+        document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+        document.getElementById('game-ui').classList.remove('hidden');
+        document.getElementById('lvl-name').innerText = config.name;
+        state.timeLeft = config.time;
+        
+        renderPantry();
+        renderInventorySlots();
+        updateUI();
+
+        state.intervals.push(setInterval(tick, 1000));
+        state.intervals.push(setInterval(spawnOrder, config.spawn));
+        spawnOrder();
+    }
+
+    function renderInventorySlots() {
+        const container = document.getElementById('inv-slots-container');
+        container.innerHTML = '';
+        for(let i=0; i<config.invSize; i++) {
+            const s = document.createElement('div');
+            s.className = 'inv-slot';
+            s.id = `inv-${i}`;
+            s.onclick = () => { if(state.inventory[i]) state.inventory.splice(i,1); updateUI(); };
+            container.appendChild(s);
+        }
+    }
+
+    function renderPantry() {
+        const p = document.getElementById('pantry');
+        p.innerHTML = '';
+        Object.keys(config.recipes).forEach(raw => {
+            const d = document.createElement('div');
+            d.className = 'ing-item';
+            d.innerText = raw;
+            d.onclick = () => { if(state.inventory.length < config.invSize) { state.inventory.push({icon:raw, isRaw:true}); updateUI(); } };
+            p.appendChild(d);
+        });
+    }
+
+    function workSlot(i) {
+        let s = state.slots[i];
+        if(!s.item) {
+            let idx = state.inventory.findIndex(it => it.isRaw);
+            if(idx !== -1) {
+                s.item = state.inventory[idx];
+                state.inventory.splice(idx, 1);
+                s.timer = setInterval(() => {
+                    s.progress += 10;
+                    if(s.progress >= 100) { s.progress = 100; clearInterval(s.timer); }
+                    updateUI();
+                }, 200);
+            }
+        } else if(s.progress >= 100 && state.inventory.length < config.invSize) {
+            state.inventory.push({icon: config.recipes[s.item.icon], isRaw: false});
+            s.item = null; s.progress = 0;
+        }
+        updateUI();
+    }
+
+    function spawnOrder() {
+        const results = Object.values(config.recipes);
+        const food = results[Math.floor(Math.random() * results.length)];
+        const order = { food, id: Date.now(), time: 100 };
+        state.orders.push(order);
+        let t = setInterval(() => {
+            order.time -= 1.5;
+            if(order.time <= 0) { clearInterval(t); state.orders = state.orders.filter(o => o.id !== order.id); }
+            updateUI();
+        }, 200);
+    }
+
+    function serveFood() {
+        let found = false;
+        state.inventory.forEach((item, idx) => {
+            if(!item.isRaw && !found) {
+                let match = state.orders.find(o => o.food === item.icon);
+                if(match) {
+                    state.score += 100;
+                    state.orders = state.orders.filter(o => o.id !== match.id);
+                    state.inventory.splice(idx, 1);
+                    found = true;
+                }
+            }
+        });
+        updateUI();
+    }
+
+    function tick() {
+        state.timeLeft--;
+        document.getElementById('timer').innerText = state.timeLeft + "с";
+        if(state.timeLeft <= 0) {
+            document.getElementById('screen-over').classList.remove('hidden');
+            document.getElementById('final-score').innerText = `Очки: ${state.score}`;
+            state.intervals.forEach(clearInterval);
+        }
+    }
+
+    function updateUI() {
+        document.getElementById('score').innerText = state.score;
+        for(let i=0; i<config.invSize; i++) {
+            const slot = document.getElementById(`inv-${i}`);
+            if(slot) {
+                slot.innerText = state.inventory[i] ? state.inventory[i].icon : '';
+                slot.className = state.inventory[i] ? 'inv-slot active' : 'inv-slot';
+            }
+        }
+        state.slots.forEach((s, i) => {
+            const el = document.querySelectorAll('.slot')[i];
+            const prog = el.querySelector('.progress');
+            el.innerHTML = s.item ? s.item.icon : '';
+            el.appendChild(prog);
+            prog.style.width = s.progress + '%';
+            prog.style.background = s.progress >= 100 ? '#4caf50' : 'var(--accent)';
+        });
+        const oArea = document.getElementById('orders-area');
+        oArea.innerHTML = '';
+        state.orders.forEach(o => {
+            const div = document.createElement('div');
+            div.className = 'order';
+            div.innerHTML = `${o.food} <div class="order-timer" style="width:${o.time}%"></div>`;
+            oArea.appendChild(div);
+        });
+    }
+</script>
+
+</body>
+</html>
